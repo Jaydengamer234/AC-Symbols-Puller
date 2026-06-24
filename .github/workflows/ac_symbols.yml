@@ -11,7 +11,7 @@ jobs:
     - name: Checkout repo
       uses: actions/checkout@v4
 
-    - name: Setup .NET 8
+    - name: Install .NET
       uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
@@ -21,17 +21,26 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Restore SteamKit downloader
-      run: dotnet restore ACPartialDownloader/ACPartialDownloader.csproj
+    - name: Download DepotDownloader
+      run: |
+        wget https://github.com/SteamRE/DepotDownloader/releases/latest/download/DepotDownloader-linux-x64.zip -O depot.zip
+        unzip depot.zip -d depot
 
-    - name: Build SteamKit downloader
-      run: dotnet build ACPartialDownloader/ACPartialDownloader.csproj -c Release
+    - name: Download depot files
+      run: |
+        dotnet depot/DepotDownloader.dll \
+          -app 813780 \
+          -depot 4551041 \
+          -manifest 7419120047354550096 \
+          -username "${{ secrets.STEAM_USER }}" \
+          -password "${{ secrets.STEAM_PASS }}" \
+          -dir downloaded
 
-    - name: Run partial depot downloader
-      env:
-        STEAM_USER: ${{ secrets.STEAM_USER }}
-        STEAM_PASS: ${{ secrets.STEAM_PASS }}
-      run: dotnet run --project ACPartialDownloader/ACPartialDownloader.csproj
+    - name: Copy required files
+      run: |
+        mkdir -p gamefiles
+        cp downloaded/**/*UnityPlayer.dll gamefiles/ || true
+        cp downloaded/**/*globalgamemanagers gamefiles/ || true
 
     - name: Install Python deps
       run: pip install -r requirements.txt || true
@@ -39,7 +48,7 @@ jobs:
     - name: Run symbol puller
       run: python symbols_puller.py
 
-    - name: Commit & push updated maps
+    - name: Commit & push results
       run: |
         git config user.email "actions@github.com"
         git config user.name "GitHub Actions"
