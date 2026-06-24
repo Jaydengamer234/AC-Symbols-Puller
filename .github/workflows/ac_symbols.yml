@@ -1,0 +1,48 @@
+name: AC Symbol Puller
+
+on:
+  workflow_dispatch:
+
+jobs:
+  pull:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout repo
+      uses: actions/checkout@v3
+
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: Install Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.11'
+
+    - name: Restore SteamKit downloader
+      run: dotnet restore ACPartialDownloader/ACPartialDownloader.csproj
+
+    - name: Build SteamKit downloader
+      run: dotnet build ACPartialDownloader/ACPartialDownloader.csproj -c Release
+
+    - name: Run partial depot downloader
+      env:
+        STEAM_USER: ${{ secrets.STEAM_USER }}
+        STEAM_PASS: ${{ secrets.STEAM_PASS }}
+      run: dotnet run --project ACPartialDownloader/ACPartialDownloader.csproj
+
+    - name: Install Python deps
+      run: pip install -r requirements.txt || true
+
+    - name: Run symbol puller
+      run: python symbols_puller.py
+
+    - name: Commit & push updated maps
+      run: |
+        git config user.email "actions@github.com"
+        git config user.name "GitHub Actions"
+        git add .
+        git commit -m "Auto-update symbols" || true
+        git push || true
