@@ -7,23 +7,23 @@ namespace ACPartialDownloader
 {
     internal class SteamKitDownloader
     {
-        private const uint APP_ID = 813780; // Example, replace with your app
-        private const uint DEPOT_ID = 4551041;
-        private const ulong MANIFEST_ID = 7419120047354550096;
+        private const uint APP_ID = 813780; // Replace with your app ID
+        private const uint DEPOT_ID = 4551041; // Replace with your depot ID
+        private const ulong MANIFEST_ID = 0; // Replace with your manifest ID
 
         public static async Task RunAsync(string user, string pass)
         {
-            Console.WriteLine("[*] Logging into Steam...");
+            Console.WriteLine("[*] Connecting to Steam...");
 
-            var steamClient = new SteamClient();
-            var callbackManager = new CallbackManager(steamClient);
+            var client = new SteamClient();
+            var manager = new CallbackManager(client);
 
-            var steamUser = steamClient.GetHandler<SteamUser>();
-            var steamApps = steamClient.GetHandler<SteamApps>();
+            var steamUser = client.GetHandler<SteamUser>();
+            var steamApps = client.GetHandler<SteamApps>();
 
             bool loggedIn = false;
 
-            callbackManager.Subscribe<SteamUser.LoggedOnCallback>(cb =>
+            manager.Subscribe<SteamUser.LoggedOnCallback>(cb =>
             {
                 if (cb.Result == EResult.OK)
                 {
@@ -36,28 +36,28 @@ namespace ACPartialDownloader
                 }
             });
 
-            steamClient.Connect();
+            client.Connect();
 
             while (!loggedIn)
-            {
-                callbackManager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
-            }
+                manager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
 
-            Console.WriteLine("[*] Requesting depot manifest...");
+            Console.WriteLine("[*] Requesting depot key...");
 
-            var manifestRequest = await steamApps.GetDepotDecryptionKeyAsync(APP_ID, DEPOT_ID);
-            if (manifestRequest.Result != EResult.OK)
+            var depotKeyResponse = await steamApps.GetDepotKeyAsync(APP_ID, DEPOT_ID);
+            if (depotKeyResponse.Result != EResult.OK)
             {
                 Console.WriteLine("[X] Failed to get depot key.");
                 return;
             }
 
-            var depotKey = manifestRequest.DepotKey;
+            var depotKey = depotKeyResponse.DepotKey;
 
-            var manifest = await steamApps.GetManifestAsync(DEPOT_ID, MANIFEST_ID, depotKey);
+            Console.WriteLine("[*] Fetching manifest...");
+
+            var manifest = await steamApps.GetDepotManifestAsync(DEPOT_ID, MANIFEST_ID, depotKey);
             if (manifest == null)
             {
-                Console.WriteLine("[X] Failed to fetch manifest.");
+                Console.WriteLine("[X] Failed to load manifest.");
                 return;
             }
 
@@ -73,7 +73,7 @@ namespace ACPartialDownloader
                     Console.WriteLine($"[*] Downloading {file.FileName}...");
 
                     using var fs = File.OpenWrite(Path.Combine("output", file.FileName));
-                    await steamApps.DownloadFileAsync(DEPOT_ID, file, depotKey, fs);
+                    await steamApps.DownloadDepotFileAsync(DEPOT_ID, file, depotKey, fs);
 
                     Console.WriteLine($"[✓] Downloaded {file.FileName}");
                 }
