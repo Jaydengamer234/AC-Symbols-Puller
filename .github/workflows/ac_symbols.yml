@@ -22,16 +22,16 @@ jobs:
         python-version: '3.11'
 
     - name: Restore SteamKit downloader
-      run: dotnet restore ACPartialDownloader.csproj
+      run: dotnet restore ACPartialDownloader/ACPartialDownloader.csproj
 
     - name: Build SteamKit downloader
-      run: dotnet build ACPartialDownloader.csproj -c Release
+      run: dotnet build ACPartialDownloader/ACPartialDownloader.csproj -c Release
 
     - name: Run partial depot downloader
       env:
         STEAM_USER: ${{ secrets.STEAM_USER }}
         STEAM_PASS: ${{ secrets.STEAM_PASS }}
-      run: dotnet run --project ACPartialDownloader.csproj
+      run: dotnet run --project ACPartialDownloader/ACPartialDownloader.csproj
 
     - name: Install Python deps
       run: pip install -r requirements.txt || true
