@@ -50,3 +50,12 @@ jobs:
         git add .
         git commit -m "Auto-update symbols" || true
         git push || true
+        
+    - name: Commit output
+      run: |
+        git config user.name "github-actions"
+        git config user.email "github-actions@github.com"
+        git add SymbolMap.json Frida-Map.js
+        git commit -m "Update symbols" || echo "No changes"
+        git push
+
