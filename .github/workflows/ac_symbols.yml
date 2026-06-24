@@ -26,15 +26,17 @@ jobs:
         wget https://github.com/SteamRE/DepotDownloader/releases/latest/download/DepotDownloader-linux-x64.zip -O depot.zip
         unzip depot.zip -d depot
 
-    - name: Download depot files
-      run: |
-        dotnet depot/DepotDownloader.dll \
-          -app 813780 \
-          -depot 4551041 \
-          -manifest 7419120047354550096 \
-          -username "${{ secrets.STEAM_USER }}" \
-          -password "${{ secrets.STEAM_PASS }}" \
-          -dir downloaded
+   - name: Download depot files
+  run: |
+    chmod +x depot/DepotDownloader
+    depot/DepotDownloader \
+      -app 813780 \
+      -depot 4551041 \
+      -manifest 7419120047354550096 \
+      -username "${{ secrets.STEAM_USER }}" \
+      -password "${{ secrets.STEAM_PASS }}" \
+      -dir downloaded
+
 
     - name: Copy required files
       run: |
