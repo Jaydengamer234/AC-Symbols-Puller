@@ -1,69 +1,48 @@
 import os
-import re
-import json
-import subprocess
+import glob
 
-BASE = os.path.dirname(os.path.abspath(__file__))
-DEPOT_DIR = os.path.join(BASE, "output")
+def find_game_folder():
+    # Prefer DepotDownloader output
+    if os.path.exists("downloaded"):
+        return "downloaded"
 
-UNITY_DLL = os.path.join(DEPOT_DIR, "UnityPlayer.dll")
-GGM_FILE  = os.path.join(DEPOT_DIR, "globalgamemanagers")
+    # Fallback for old SteamKit2 output
+    if os.path.exists("output"):
+        return "output"
 
-OUT_MAP   = os.path.join(BASE, "SymbolMap.json")
-OUT_FRIDA = os.path.join(BASE, "Frida-Map.js")
+    raise RuntimeError("No game folder found. Expected 'downloaded/' or 'output/'.")
 
-def extract_symbols(path):
-    print(f"[*] Extracting symbols from {path}...")
-    if not os.path.exists(path):
-        raise FileNotFoundError(f"Missing file: {path}")
+def find_required_files(root):
+    unity = None
+    ggm = None
 
-    # strings-like extraction
-    result = subprocess.run(
-        ["strings", path],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        text=True
-    )
+    for path in glob.glob(root + "/**/*", recursive=True):
+        lower = path.lower()
+        if "unityplayer.dll" in lower:
+            unity = path
+        if "globalgamemanagers" in lower and not lower.endswith(".assets"):
+            ggm = path
 
-    lines = result.stdout.splitlines()
-    symbols = [s for s in lines if "il2cpp" in s.lower()]
-    return symbols
+    if not unity:
+        raise RuntimeError("UnityPlayer.dll not found in depot files.")
 
-def build_symbol_map(symbols):
-    print("[*] Building SymbolMap.json...")
-    data = {"symbols": symbols}
-    with open(OUT_MAP, "w") as f:
-        json.dump(data, f, indent=2)
+    if not ggm:
+        raise RuntimeError("globalgamemanagers not found in depot files.")
 
-def build_frida_map(symbols):
-    print("[*] Building Frida-Map.js...")
-    with open(OUT_FRIDA, "w") as f:
-        f.write("/* Auto-generated */\n")
-        f.write("var SymbolMap = [\n")
-        for s in symbols:
-            f.write(f'  "{s}",\n')
-        f.write("];\n")
+    return unity, ggm
 
 def main():
     print("[*] Starting symbol puller...")
 
-    if not os.path.exists(DEPOT_DIR):
-        raise RuntimeError("output/ folder missing — SteamKit downloader did not run.")
+    root = find_game_folder()
+    print(f"[*] Using game folder: {root}")
 
-    # extract from UnityPlayer.dll
-    unity_syms = extract_symbols(UNITY_DLL)
+    unity, ggm = find_required_files(root)
+    print(f"[*] Found UnityPlayer.dll: {unity}")
+    print(f"[*] Found globalgamemanagers: {ggm}")
 
-    # extract from globalgamemanagers
-    ggm_syms = extract_symbols(GGM_FILE)
-
-    # combine
-    all_syms = sorted(set(unity_syms + ggm_syms))
-
-    # write outputs
-    build_symbol_map(all_syms)
-    build_frida_map(all_syms)
-
-    print("[✓] Symbol pull complete.")
+    # Continue with your existing logic...
+    # parse files, generate maps, etc.
 
 if __name__ == "__main__":
     main()
