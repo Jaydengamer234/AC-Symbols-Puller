@@ -1,31 +1,25 @@
 using SteamKit2;
+using System;
 using System.IO;
-using System.Linq;
 using System.Threading.Tasks;
 
 namespace ACPartialDownloader
 {
-    public static class DepotPuller
+    internal class SteamKitDownloader
     {
-        private const uint APPID = 4551040;
-        private const uint DEPOTID = 4551041;
-        private const ulong MANIFESTID = 7419120047354550096;
+        private const uint APP_ID = 813780; // Example, replace with your app
+        private const uint DEPOT_ID = 4551041;
+        private const ulong MANIFEST_ID = 7419120047354550096;
 
-        private static readonly string[] TargetFiles =
-        {
-            "UnityPlayer.dll",
-            "globalgamemanagers"
-        };
-
-        public static async Task RunAsync()
+        public static async Task RunAsync(string user, string pass)
         {
             Console.WriteLine("[*] Logging into Steam...");
 
             var steamClient = new SteamClient();
             var callbackManager = new CallbackManager(steamClient);
 
-            var auth = steamClient.GetHandler<SteamUser>();
-            var depot = steamClient.GetHandler<SteamContent>();
+            var steamUser = steamClient.GetHandler<SteamUser>();
+            var steamApps = steamClient.GetHandler<SteamApps>();
 
             bool loggedIn = false;
 
@@ -33,12 +27,12 @@ namespace ACPartialDownloader
             {
                 if (cb.Result == EResult.OK)
                 {
-                    Console.WriteLine("[+] Logged in!");
+                    Console.WriteLine("[✓] Logged in!");
                     loggedIn = true;
                 }
                 else
                 {
-                    Console.WriteLine("[-] Login failed: " + cb.Result);
+                    Console.WriteLine($"[X] Login failed: {cb.Result}");
                 }
             });
 
@@ -49,38 +43,43 @@ namespace ACPartialDownloader
                 callbackManager.RunWaitCallbacks(TimeSpan.FromSeconds(1));
             }
 
-            Console.WriteLine("[*] Fetching manifest...");
-            var manifest = await depot.GetManifestAsync(APPID, DEPOTID, MANIFESTID);
+            Console.WriteLine("[*] Requesting depot manifest...");
 
-            Console.WriteLine("[*] Searching for target files...");
-            var files = manifest.Files
-                .Where(f => TargetFiles.Contains(Path.GetFileName(f.FileName)))
-                .ToList();
-
-            if (!files.Any())
+            var manifestRequest = await steamApps.GetDepotDecryptionKeyAsync(APP_ID, DEPOT_ID);
+            if (manifestRequest.Result != EResult.OK)
             {
-                Console.WriteLine("[-] No target files found in manifest.");
+                Console.WriteLine("[X] Failed to get depot key.");
                 return;
             }
 
-            Directory.CreateDirectory("output");
+            var depotKey = manifestRequest.DepotKey;
 
-            foreach (var file in files)
+            var manifest = await steamApps.GetManifestAsync(DEPOT_ID, MANIFEST_ID, depotKey);
+            if (manifest == null)
             {
-                Console.WriteLine($"[*] Downloading {file.FileName}...");
-
-                using var fs = new FileStream(Path.Combine("output", Path.GetFileName(file.FileName)), FileMode.Create);
-
-                foreach (var chunk in file.Chunks)
-                {
-                    var data = await depot.DownloadChunkAsync(APPID, DEPOTID, chunk.ChunkID);
-                    await fs.WriteAsync(data);
-                }
-
-                Console.WriteLine($"[+] Saved {file.FileName}");
+                Console.WriteLine("[X] Failed to fetch manifest.");
+                return;
             }
 
-            Console.WriteLine("[✓] Done!");
+            Console.WriteLine("[*] Manifest loaded.");
+
+            Directory.CreateDirectory("output");
+
+            foreach (var file in manifest.Files)
+            {
+                if (file.FileName.Contains("UnityPlayer.dll") ||
+                    file.FileName.Contains("globalgamemanagers"))
+                {
+                    Console.WriteLine($"[*] Downloading {file.FileName}...");
+
+                    using var fs = File.OpenWrite(Path.Combine("output", file.FileName));
+                    await steamApps.DownloadFileAsync(DEPOT_ID, file, depotKey, fs);
+
+                    Console.WriteLine($"[✓] Downloaded {file.FileName}");
+                }
+            }
+
+            Console.WriteLine("[✓] Done.");
         }
     }
 }
