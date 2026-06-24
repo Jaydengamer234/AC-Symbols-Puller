@@ -9,29 +9,29 @@ jobs:
 
     steps:
     - name: Checkout repo
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
 
     - name: Setup .NET 8
-      uses: actions/setup-dotnet@v3
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: '8.0.x'
 
     - name: Install Python
-      uses: actions/setup-python@v4
+      uses: actions/setup-python@v5
       with:
         python-version: '3.11'
 
     - name: Restore SteamKit downloader
-      run: dotnet restore ACPartialDownloader/ACPartialDownloader.csproj
+      run: dotnet restore ACPartialDownloader.csproj
 
     - name: Build SteamKit downloader
-      run: dotnet build ACPartialDownloader/ACPartialDownloader.csproj -c Release
+      run: dotnet build ACPartialDownloader.csproj -c Release
 
     - name: Run partial depot downloader
       env:
         STEAM_USER: ${{ secrets.STEAM_USER }}
         STEAM_PASS: ${{ secrets.STEAM_PASS }}
-      run: dotnet run --project ACPartialDownloader/ACPartialDownloader.csproj
+      run: dotnet run --project ACPartialDownloader.csproj
 
     - name: Install Python deps
       run: pip install -r requirements.txt || true
